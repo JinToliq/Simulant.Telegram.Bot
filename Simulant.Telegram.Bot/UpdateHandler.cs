@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Simulant.Telegram.Bot.CommandHandling;
 using Simulant.Telegram.Bot.CommandHandling.Attributes;
 using Stashbox;
@@ -19,32 +20,39 @@ namespace Simulant.Telegram.Bot
     public event Func<ITelegramBotClient, Update, CancellationToken, Task<bool>>? BeforeUpdate;
     public event Func<ITelegramBotClient, Update, CancellationToken, Task>? AfterUpdate;
 
+    internal ILogger Logger;
     private List<CommandInfo> _commands = new ();
     private readonly StashboxContainer _container = new ();
     private readonly Type _defaultHandlerType = typeof(DefaultCommandHandler);
     private readonly Type _baseHandlerType = typeof(CommandHandlerBase);
+    private bool _isDefaultCommandHandlerRegistered;
 
     public char? Marker { get; set; }
     public IReadOnlyList<CommandInfo> Commands => _commands;
 
     public void Dispose() => _container.Dispose();
 
-    public void AddTransients<TService>() where TService : class
+    public UpdateHandler AddTransients<TService>() where TService : class
     {
       AssertServiceIsNotRegistered<TService>();
 
       var serviceType = typeof(TService);
       if (_defaultHandlerType.IsAssignableFrom(serviceType))
       {
+        if (_isDefaultCommandHandlerRegistered)
+          return this;
+
         _container.Register(_defaultHandlerType, serviceType);
-        return;
+        _isDefaultCommandHandlerRegistered = true;
+        return this;
       }
 
       _container.Register<TService>();
       TryRegisterCommands<TService, CommandAttributeBase>();
+      return this;
     }
 
-    public void AddSingleton<TService>() where TService : class
+    public UpdateHandler AddSingleton<TService>() where TService : class
     {
       AssertServiceIsNotCommandHandler<TService>();
       AssertServiceIsNotRegistered<TService>();
@@ -52,14 +60,19 @@ namespace Simulant.Telegram.Bot
       var serviceType = typeof(TService);
       if (_defaultHandlerType.IsAssignableFrom(serviceType))
       {
+        if (_isDefaultCommandHandlerRegistered)
+          return this;
+
         _container.RegisterSingleton(_defaultHandlerType, serviceType);
-        return;
+        _isDefaultCommandHandlerRegistered = true;
+        return this;
       }
 
       _container.RegisterSingleton<TService>();
+      return this;
     }
 
-    public void AddInstance<TService>(TService instance) where TService : class
+    public UpdateHandler AddInstance<TService>(TService instance) where TService : class
     {
       ArgumentNullException.ThrowIfNull(instance);
       AssertServiceIsNotCommandHandler<TService>();
@@ -68,38 +81,51 @@ namespace Simulant.Telegram.Bot
       var serviceType = typeof(TService);
       if (_defaultHandlerType.IsAssignableFrom(serviceType))
       {
+        if (_isDefaultCommandHandlerRegistered)
+          return this;
+
         _container.RegisterInstance(_defaultHandlerType, instance);
-        return;
+        _isDefaultCommandHandlerRegistered = true;
+        return this;
       }
 
       _container.RegisterInstance(instance);
+      return this;
     }
 
     public async Task Handle(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
     {
-      if (BeforeUpdate != null && await BeforeUpdate.Invoke(client, update, cancellationToken))
-        return;
-
-      if (_container.IsRegistered(_defaultHandlerType))
+      try
       {
-        var defaultHandler = (DefaultCommandHandler)_container.Resolve(_defaultHandlerType);
-        var shouldReturn = await defaultHandler.Handle(client, update, cancellationToken);
-        if (shouldReturn)
+        Logger.LogDebug("Handling new update: {Type} {MessageType} {From} {Text}", update.Type, update.Message?.Type, update.Message?.From?.ToString(), update.Message?.Text);
+        if (BeforeUpdate != null && await BeforeUpdate.Invoke(client, update, cancellationToken))
           return;
-      }
 
-      switch (update.Type)
+        if (_isDefaultCommandHandlerRegistered)
+        {
+          var defaultHandler = (DefaultCommandHandler)_container.Resolve(_defaultHandlerType);
+          var shouldReturn = await defaultHandler.Handle(client, update, cancellationToken);
+          if (shouldReturn)
+            return;
+        }
+
+        switch (update.Type)
+        {
+          case UpdateType.InlineQuery:
+            await HandleInlineQuery(client, update, cancellationToken);
+            break;
+          case UpdateType.Message:
+            await HandleMessage(client, update, cancellationToken);
+            break;
+        }
+
+        if (AfterUpdate != null)
+          await AfterUpdate.Invoke(client, update, cancellationToken);
+      }
+      catch (Exception e)
       {
-        case UpdateType.InlineQuery:
-          await HandleInlineQuery(client, update, cancellationToken);
-          break;
-        case UpdateType.Message:
-          await HandleMessage(client, update, cancellationToken);
-          break;
+        Logger.LogError(e, "An error has occured while handling update: {Type} {MessageType} {From} {Text}", update.Type, update.Message?.Type, update.Message?.From?.ToString(), update.Message?.Text);
       }
-
-      if (AfterUpdate != null)
-        await AfterUpdate.Invoke(client, update, cancellationToken);
     }
 
     private async Task HandleInlineQuery(ITelegramBotClient client, Update update, CancellationToken cancellationToken)

@@ -14,6 +14,7 @@ namespace Simulant.Telegram.Bot.CommandHandling
     protected ITelegramBotClient Client { get; private set; }
     protected Update Update { get; private set; }
     protected User? From { get; private set; }
+    protected Chat? Chat { get; private set; }
     protected string? Text { get; private set; }
     protected CancellationToken CancellationToken { get; private set; }
 
