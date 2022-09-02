@@ -14,14 +14,16 @@ namespace Simulant.Telegram.Bot.CommandHandling
     protected ITelegramBotClient Client { get; private set; }
     protected Update Update { get; private set; }
     protected User? From { get; private set; }
+    protected Chat? Chat { get; private set; }
     protected string? Text { get; private set; }
     protected CancellationToken CancellationToken { get; private set; }
 
-    internal void SetRequiredData(ITelegramBotClient client, Update update, User? from, string? text, CancellationToken token)
+    internal void Initialize(ITelegramBotClient client, Update update, string? text, CancellationToken token)
     {
       Client = client;
       Update = update;
-      From = from;
+      From = update.Message?.From;
+      Chat = update.Message?.Chat;
       Text = text;
       CancellationToken = token;
     }
