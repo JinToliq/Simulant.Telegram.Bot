@@ -17,6 +17,7 @@ using LogLevel = Simulant.Telegram.Bot.Logging.LogLevel;
 
 namespace Simulant.Telegram.Bot
 {
+  [SuppressMessage("ReSharper", "PropertyCanBeMadeInitOnly.Global")]
   [SuppressMessage("ReSharper", "ClassWithVirtualMembersNeverInherited.Global")]
   public class UpdateHandlerBase : IDisposable
   {
@@ -176,6 +177,10 @@ namespace Simulant.Telegram.Bot
 
     protected virtual Task HandleChatJoinRequestAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken) => Task.CompletedTask;
 
+    protected virtual Task HandlePlainTextMessageAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    protected virtual Task HandleNonTextMessageAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken) => Task.CompletedTask;
+
     private async Task HandleInlineQueryAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
     {
       var query = update.InlineQuery!.Id;
@@ -190,10 +195,13 @@ namespace Simulant.Telegram.Bot
 
     private async Task HandleMessageAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
     {
-      await TryHandleAsText(client, update, cancellationToken);
+      if (update.Message!.Type is MessageType.Text)
+        await HandleTextMessageAsync(client, update, cancellationToken);
+      else
+        await HandleNonTextMessageAsync(client, update, cancellationToken);
     }
 
-    private async Task TryHandleAsText(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
+    private async Task HandleTextMessageAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
     {
       var text = update.Message!.Text;
       if (text is null)
@@ -209,7 +217,7 @@ namespace Simulant.Telegram.Bot
 
       if (!TryGetCommand(text, CommandType.Command, out var command))
       {
-        Log?.Invoke(new(LogLevel.Warning, $"Requested command not found: {text}"));
+        await HandlePlainTextMessageAsync(client, update, cancellationToken);
         return;
       }
 
