@@ -3,7 +3,7 @@ using Simulant.Telegram.Bot.Logging;
 using Simulant.Telegram.Bot.TestBot;
 
 var token = File.ReadAllText("token.dat");
-var client = new BotClient(token, new UpdateHandler().AddHandler<TestCommandHandler>(), OnLog);
+var client = new BotClient(token, new UpdateHandlerBase().AddHandler<TestCommandHandler>(), OnLog);
 client.StartPolling();
 
 while (true)
@@ -11,4 +11,4 @@ while (true)
   await Task.Delay(TimeSpan.FromSeconds(1));
 }
 
-void OnLog(Log log) => Console.WriteLine($"[{log.Level}] - {log.Message}{(log.Exception is null ? string.Empty : $" {log.Exception.Message}")}");
+void OnLog(Log log) => Console.WriteLine($"[{log.DateTimeUTC}] [{log.Level}] - {log.Message}{(log.Exception is null ? string.Empty : $" {log.Exception.Message}")}");

@@ -7,7 +7,7 @@ namespace Simulant.Telegram.Bot
   public enum CommandType
   {
     Command = 0,
-    InlineCommand = 1,
+    InlineQuery = 1,
   }
 
   public class CommandInfo

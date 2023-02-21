@@ -10,22 +10,22 @@ namespace Simulant.Telegram.Bot.Tests
     [Test]
     public void HandledSimpleCommandTest()
     {
-      var handler = new UpdateHandler();
+      var handler = new UpdateHandlerBase();
       var client = new TelegramBotClientMock();
       handler.AddTransients<TestHandler>();
       var update = new Update {Message = new Message {Text = "test foo"}};
-      handler.Handle(client, update, CancellationToken.None);
+      handler.HandleAsync(client, update, CancellationToken.None);
       Assert.IsTrue(client.Check1);
     }
 
     [Test]
     public void HandledComplexCommandTest()
     {
-      var handler = new UpdateHandler();
+      var handler = new UpdateHandlerBase();
       var client = new TelegramBotClientMock();
       handler.AddTransients<TestHandler>();
       var update = new Update {Message = new Message {Text = "test foo bar"}};
-      handler.Handle(client, update, CancellationToken.None);
+      handler.HandleAsync(client, update, CancellationToken.None);
       Assert.IsTrue(client.Check1);
     }
 
@@ -34,10 +34,10 @@ namespace Simulant.Telegram.Bot.Tests
     {
       const string text = "test text";
       var client = new TelegramBotClientMock();
-      var handler = new UpdateHandler();
+      var handler = new UpdateHandlerBase();
       handler.AddTransients<TestHandler>();
       var update = new Update {Message = new Message {Text = $"test foo bar text {text}"}};
-      handler.Handle(client, update, CancellationToken.None);
+      handler.HandleAsync(client, update, CancellationToken.None);
       Assert.IsTrue(client.Check1);
       StringAssert.AreEqualIgnoringCase(text, client.Text);
     }
@@ -47,10 +47,10 @@ namespace Simulant.Telegram.Bot.Tests
     {
       const string text = "test text";
       var client = new TelegramBotClientMock();
-      var handler = new UpdateHandler() {Marker = '$'};
+      var handler = new UpdateHandlerBase() {Marker = '$'};
       handler.AddTransients<TestHandler>();
       var update = new Update {Message = new Message {Text = $"test foo bar marker {text}"}};
-      handler.Handle(client, update, CancellationToken.None);
+      handler.HandleAsync(client, update, CancellationToken.None);
       Assert.IsFalse(client.Check1);
       StringAssert.AreNotEqualIgnoringCase(text, client.Text);
     }
@@ -60,10 +60,10 @@ namespace Simulant.Telegram.Bot.Tests
     {
       const string text = "test text";
       var client = new TelegramBotClientMock();
-      var handler = new UpdateHandler() {Marker = '$'};
+      var handler = new UpdateHandlerBase() {Marker = '$'};
       handler.AddTransients<TestHandler>();
       var update = new Update {Message = new Message {Text = $"$test foo bar marker {text}"}};
-      handler.Handle(client, update, CancellationToken.None);
+      handler.HandleAsync(client, update, CancellationToken.None);
       Assert.IsTrue(client.Check1);
       StringAssert.AreEqualIgnoringCase(text, client.Text);
     }

@@ -10,7 +10,7 @@ using LogLevel = Simulant.Telegram.Bot.Logging.LogLevel;
 
 namespace Simulant.Telegram.Bot
 {
-  public class BotClient
+  public class BotClient : IDisposable
   {
     public event Action<Log>? Log
     {
@@ -20,11 +20,11 @@ namespace Simulant.Telegram.Bot
 
     public readonly TelegramBotClient Client;
     private CancellationTokenSource? _pollingCancellationTokenSource;
-    private readonly UpdateHandler _updateHandler;
+    private readonly UpdateHandlerBase _updateHandler;
     private IErrorHandler? _errorHandler;
     private Action<Log>? _log;
 
-    public BotClient(string token, UpdateHandler handler, Action<Log> onLog)
+    public BotClient(string token, UpdateHandlerBase handler, Action<Log> onLog)
     {
       if (string.IsNullOrEmpty(token))
         throw new ArgumentNullException(nameof(token));
@@ -70,7 +70,7 @@ namespace Simulant.Telegram.Bot
       if (_updateHandler is null)
         throw new InvalidOperationException("MessageHandler is null");
 
-      await _updateHandler.Handle(botClient, update, cancellationToken);
+      await _updateHandler.HandleAsync(botClient, update, cancellationToken);
     }
 
     private async Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
@@ -79,6 +79,14 @@ namespace Simulant.Telegram.Bot
         _log?.Invoke(new(LogLevel.Error, $"An unhandled error has occured. Provide custom handler with {nameof(AddErrorHandler)}", exception));
       else
         await _errorHandler.HandleErrorAsync(botClient, exception, cancellationToken);
+    }
+
+    public void Dispose()
+    {
+      _pollingCancellationTokenSource?.Dispose();
+      _updateHandler.Log -= OnHandlerLog;
+      _updateHandler.Dispose();
+      _log?.Invoke(new(LogLevel.Info, "Disposed"));
     }
   }
 }

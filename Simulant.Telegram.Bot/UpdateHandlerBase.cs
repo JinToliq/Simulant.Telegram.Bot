@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -16,103 +17,130 @@ using LogLevel = Simulant.Telegram.Bot.Logging.LogLevel;
 
 namespace Simulant.Telegram.Bot
 {
-  public class UpdateHandler : IDisposable
+  [SuppressMessage("ReSharper", "ClassWithVirtualMembersNeverInherited.Global")]
+  public class UpdateHandlerBase : IDisposable
   {
-    public event Func<ITelegramBotClient, Update, CancellationToken, Task<bool>>? BeforeUpdate;
-    public event Func<ITelegramBotClient, Update, CancellationToken, Task>? AfterUpdate;
-
     internal event Action<Log>? Log;
     private List<CommandInfo> _commands = new();
     private readonly StashboxContainer _container = new();
-    private readonly Type _defaultHandlerType = typeof(DefaultCommandHandler);
     private readonly Type _baseHandlerType = typeof(CommandHandlerBase);
-    private bool _isDefaultCommandHandlerRegistered;
 
     public char? Marker { get; set; }
     public IReadOnlyList<CommandInfo> Commands => _commands;
 
     public void Dispose() => _container.Dispose();
 
-    public UpdateHandler AddHandler<THandler>() where THandler : CommandHandlerBase
+    public UpdateHandlerBase AddHandler<THandler>() where THandler : CommandHandlerBase
     {
       AssertServiceIsNotRegistered<THandler>();
       AssertServiceIsCommandHandler<THandler>();
-      AssertServiceIsNotDefaultHandler<THandler>();
 
       _container.Register<THandler>();
       TryRegisterCommands<THandler, CommandAttributeBase>();
       return this;
     }
 
-    public UpdateHandler AddDefaultHandler<THandler>() where THandler : DefaultCommandHandler
-    {
-      AssertServiceIsNotRegistered<THandler>();
-      AssertServiceIsNotCommandHandler<THandler>();
-      AssertServiceIsDefaultHandler<THandler>();
-
-      _container.Register<THandler>();
-      _isDefaultCommandHandlerRegistered = true;
-      return this;
-    }
-
-    public UpdateHandler AddTransients<TService>() where TService : class
+    public UpdateHandlerBase AddTransients<TService>() where TService : class
     {
       AssertServiceIsNotRegistered<TService>();
       AssertServiceIsNotCommandHandler<TService>();
-      AssertServiceIsNotDefaultHandler<TService>();
 
       _container.Register<TService>();
       return this;
     }
 
-    public UpdateHandler AddSingleton<TService>() where TService : class
+    public UpdateHandlerBase AddSingleton<TService>() where TService : class
     {
       AssertServiceIsNotRegistered<TService>();
       AssertServiceIsNotCommandHandler<TService>();
-      AssertServiceIsNotDefaultHandler<TService>();
 
       _container.RegisterSingleton<TService>();
       return this;
     }
 
-    public UpdateHandler AddInstance<TService>(TService instance) where TService : class
+    public UpdateHandlerBase AddInstance<TService>(TService instance) where TService : class
     {
       ArgumentNullException.ThrowIfNull(instance);
       AssertServiceIsNotRegistered<TService>();
       AssertServiceIsNotCommandHandler<TService>();
-      AssertServiceIsNotDefaultHandler<TService>();
 
       _container.RegisterInstance(instance);
       return this;
     }
 
-    public async Task Handle(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
+    public async Task HandleAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
     {
       try
       {
-        if (BeforeUpdate != null && await BeforeUpdate.Invoke(client, update, cancellationToken))
+        if (await BeforeUpdateAsync(client, update, cancellationToken))
           return;
-
-        if (_isDefaultCommandHandlerRegistered)
-        {
-          var defaultHandler = (DefaultCommandHandler)_container.Resolve(_defaultHandlerType);
-          var shouldReturn = await defaultHandler.Handle(client, update, cancellationToken);
-          if (shouldReturn)
-            return;
-        }
 
         switch (update.Type)
         {
+          case UpdateType.Unknown:
+            throw new InvalidOperationException($"Unknown update type: {update}");
+
           case UpdateType.InlineQuery:
-            await HandleInlineQuery(client, update, cancellationToken);
+            await HandleInlineQueryAsync(client, update, cancellationToken);
             break;
+
           case UpdateType.Message:
-            await HandleMessage(client, update, cancellationToken);
+            await HandleMessageAsync(client, update, cancellationToken);
             break;
+
+          case UpdateType.ChosenInlineResult:
+            await HandleChosenInlineResultAsync(client, update, cancellationToken);
+            break;
+
+          case UpdateType.CallbackQuery:
+            await HandleCallbackQueryAsync(client, update, cancellationToken);
+            break;
+
+          case UpdateType.EditedMessage:
+            await HandleEditedMessageAsync(client, update, cancellationToken);
+            break;
+
+          case UpdateType.ChannelPost:
+            await HandleChannelPostAsync(client, update, cancellationToken);
+            break;
+
+          case UpdateType.EditedChannelPost:
+            await HandleEditedChannelPostAsync(client, update, cancellationToken);
+            break;
+
+          case UpdateType.ShippingQuery:
+            await HandleShippingQueryAsync(client, update, cancellationToken);
+            break;
+
+          case UpdateType.PreCheckoutQuery:
+            await HandlePreCheckoutQueryAsync(client, update, cancellationToken);
+            break;
+
+          case UpdateType.Poll:
+            await HandlePollAsync(client, update, cancellationToken);
+            break;
+
+          case UpdateType.PollAnswer:
+            await HandlePollAnswerAsync(client, update, cancellationToken);
+            break;
+
+          case UpdateType.MyChatMember:
+            await HandleMyChatMemberAsync(client, update, cancellationToken);
+            break;
+
+          case UpdateType.ChatMember:
+            await HandleChatMemberAsync(client, update, cancellationToken);
+            break;
+
+          case UpdateType.ChatJoinRequest:
+            await HandleChatJoinRequestAsync(client, update, cancellationToken);
+            break;
+
+          default:
+            throw new ArgumentOutOfRangeException(nameof(update.Type), update.Type, "Unsupported update type");
         }
 
-        if (AfterUpdate != null)
-          await AfterUpdate.Invoke(client, update, cancellationToken);
+        await AfterUpdateAsync(client, update, cancellationToken);
       }
       catch (Exception e)
       {
@@ -120,10 +148,38 @@ namespace Simulant.Telegram.Bot
       }
     }
 
-    private async Task HandleInlineQuery(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
+    protected virtual Task<bool> BeforeUpdateAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken) => Task.FromResult(false);
+
+    protected virtual Task AfterUpdateAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    protected virtual Task HandleChosenInlineResultAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    protected virtual Task HandleCallbackQueryAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    protected virtual Task HandleEditedMessageAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    protected virtual Task HandleChannelPostAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    protected virtual Task HandleEditedChannelPostAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    protected virtual Task HandleShippingQueryAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    protected virtual Task HandlePreCheckoutQueryAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    protected virtual Task HandlePollAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    protected virtual Task HandlePollAnswerAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    protected virtual Task HandleMyChatMemberAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    protected virtual Task HandleChatMemberAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    protected virtual Task HandleChatJoinRequestAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    private async Task HandleInlineQueryAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
     {
       var query = update.InlineQuery!.Id;
-      if (!TryGetCommand(query, CommandType.InlineCommand, out var command))
+      if (!TryGetCommand(query, CommandType.InlineQuery, out var command))
       {
         Log?.Invoke(new(LogLevel.Warning, $"Requested inline command not found: {query}"));
         return;
@@ -132,7 +188,7 @@ namespace Simulant.Telegram.Bot
       await HandleCommand(client, update, command!, null, cancellationToken);
     }
 
-    private async Task HandleMessage(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
+    private async Task HandleMessageAsync(ITelegramBotClient client, Update update, CancellationToken cancellationToken)
     {
       await TryHandleAsText(client, update, cancellationToken);
     }
@@ -222,20 +278,6 @@ namespace Simulant.Telegram.Bot
       var serviceType = typeof(TService);
       if (!_baseHandlerType.IsAssignableFrom(serviceType))
         throw new ArgumentException($"Only {_baseHandlerType.Name} inheritors are allowed for {member}");
-    }
-
-    private void AssertServiceIsNotDefaultHandler<TService>([CallerMemberName] string? member = null) where TService : class
-    {
-      var serviceType = typeof(TService);
-      if (_defaultHandlerType.IsAssignableFrom(serviceType))
-        throw new ArgumentException($"Using {_defaultHandlerType.Name} inheritors are not allowed for {member}. Use {nameof(AddDefaultHandler)} instead");
-    }
-
-    private void AssertServiceIsDefaultHandler<TService>([CallerMemberName] string? member = null) where TService : class
-    {
-      var serviceType = typeof(TService);
-      if (_defaultHandlerType.IsAssignableFrom(serviceType))
-        throw new ArgumentException($"Only {_defaultHandlerType.Name} inheritors are allowed for {member}");
     }
 
     private void AssertServiceIsNotRegistered<TService>() where TService : class
