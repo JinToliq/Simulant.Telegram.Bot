@@ -1,16 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
+        <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>disable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <RootNamespace>Simulant.Telegram.Bot</RootNamespace>
         <Version>1.0.0</Version>
+        <LangVersion>13</LangVersion>
+        <Title>Simulant.Telegram.Bot</Title>
+        <Authors>jintoliq.dev@gmail.com</Authors>
+        <PackageProjectUrl>https://github.com/JinToliq/Simulant.Telegram.Bot</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/JinToliq/Simulant.Telegram.Bot</RepositoryUrl>
+        <PackageTags>Telegram, Bot</PackageTags>
+        <AssemblyVersion>1.0.0</AssemblyVersion>
+        <FileVersion>1.0.0</FileVersion>
+        <NeutralLanguage>en-001</NeutralLanguage>
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Stashbox" Version="5.3.0" />
-      <PackageReference Include="Telegram.Bot" Version="18.0.0-alpha.1" />
+      <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.0" />
+      <PackageReference Include="Stashbox" Version="5.17.1" />
+      <PackageReference Include="Telegram.Bot" Version="22.4.4" />
       <PackageReference Include="Telegram.Bot.Extensions.Polling" Version="2.0.0-alpha.1" />
     </ItemGroup>
 

@@ -4,8 +4,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simulant.Telegram.Bot", "Si
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simulant.Telegram.Bot.Tests", "Simulant.Telegram.Bot.Tests\Simulant.Telegram.Bot.Tests.csproj", "{353C56A5-4DCB-415E-9EB3-BF15D758A587}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simulant.Telegram.Bot.TestBot", "Simulant.Telegram.Bot.TestBot\Simulant.Telegram.Bot.TestBot.csproj", "{1A72A52B-3775-418D-BE59-9D0CF5FC1A77}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,9 +18,5 @@ Global
 		{353C56A5-4DCB-415E-9EB3-BF15D758A587}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{353C56A5-4DCB-415E-9EB3-BF15D758A587}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{353C56A5-4DCB-415E-9EB3-BF15D758A587}.Release|Any CPU.Build.0 = Release|Any CPU
-		{1A72A52B-3775-418D-BE59-9D0CF5FC1A77}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{1A72A52B-3775-418D-BE59-9D0CF5FC1A77}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{1A72A52B-3775-418D-BE59-9D0CF5FC1A77}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{1A72A52B-3775-418D-BE59-9D0CF5FC1A77}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

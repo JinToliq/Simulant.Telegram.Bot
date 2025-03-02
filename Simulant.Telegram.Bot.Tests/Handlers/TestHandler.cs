@@ -1,7 +1,8 @@
-﻿using Simulant.Telegram.Bot.CommandHandling;
+﻿using System.Threading.Tasks;
+using Simulant.Telegram.Bot.CommandHandling;
 using Simulant.Telegram.Bot.CommandHandling.Attributes;
 
-namespace Simulant.Telegram.Bot.Tests
+namespace Simulant.Telegram.Bot.Tests.Handlers
 {
   [Route("test")]
   public class TestHandler : CommandHandlerBase
@@ -30,10 +31,12 @@ namespace Simulant.Telegram.Bot.Tests
     }
 
     [Command("foo bar marker")]
-    public void HandleComplexCommandWithTextAndMarker()
+    public async Task HandleComplexCommandWithTextAndMarker()
     {
       Mock.Check1 = true;
       Mock.Text = Text;
+      await Task.CompletedTask;
+      return;
     }
 
     [InlineCommand("foo")]
